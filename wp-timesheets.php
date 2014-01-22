@@ -1,14 +1,14 @@
 <?php
 /*
   Plugin Name: WP Timesheets
-  Plugin URI: http://www.github.com/declarebrands/wp-time-sheets
+  Plugin URI: http://www.github.com/declarebrands/wp-timesheets
   Description: Track the time and frequency you work on Tasks and Projects with this plugin.
   Version: 1.0.0
   Author: Chris MacKay
   Author URI: http://www.chrismackay.me
   License: GPL2
   
-	Copyright 2013 Declare Brands Inc (email: cmackay@declarebrands.com)
+  Copyright 2013-2014 Declare Brands Inc (email: cmackay@declarebrands.com)
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2, as 
@@ -105,8 +105,14 @@ function wp_timesheets_add_thickbox() {
 
 add_action('wp_enqueue_scripts', 'wp_timesheets_scripts');
 function wp_timesheets_scripts(){
-	wp_register_script('wp-timesheets-jscolor', plugin_dir_url( __FILE__ ).'/js/jscolor.js', array(), '0.0.0', false);
+	wp_register_script('wp-timesheets-jscolor', plugin_dir_url( __FILE__ ).'js/jscolor.js', array(), '0.0.0', false);
 	wp_enqueue_script('wp-timesheets-jscolor');
+	wp_register_script('wp-timesheets-show-hide', plugin_dir_url( __FILE__ ).'js/show_hide.js', array(), '0.0.0', false);
+	wp_enqueue_script('wp-timesheets-show-hide');
+	wp_enqueue_script('jquery-ui-datepicker');
+	wp_enqueue_style('jquery-style', 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.2/themes/smoothness/jquery-ui.css');
+	wp_register_script('jquery-ui-timepicker', plugin_dir_url( __FILE__ ).'js/jquery-ui-timepicker-addon.js', array('jquery'), '0.0.0', true);
+	wp_enqueue_script('jquery-ui-timepicker');
 }
 
 function wp_timesheets_styles(){
@@ -189,6 +195,19 @@ function wp_timesheets_styles(){
         box-shadow: inset 0 2px 4px rgba(0,0,0,0.15),0 1px 2px rgba(0,0,0,0.05);
         background-color:#e0e0e0;
       }
+			/* css for timepicker */
+      .ui-timepicker-div .ui-widget-header { margin-bottom: 8px; }
+      .ui-timepicker-div dl { text-align: left; }
+      .ui-timepicker-div dl dt { float: left; clear:left; padding: 0 0 0 5px; }
+      .ui-timepicker-div dl dd { margin: 0 10px 10px 45%; }
+      .ui-timepicker-div td { font-size: 90%; }
+      .ui-tpicker-grid-label { background: none; border: none; margin: 0; padding: 0; }
+
+      .ui-timepicker-rtl{ direction: rtl; }
+      .ui-timepicker-rtl dl { text-align: right; padding: 0 5px 0 0; }
+      .ui-timepicker-rtl dl dt{ float: right; clear: right; }
+      .ui-timepicker-rtl dl dd { margin: 0 45% 10px 10px; }
+			
 			@media print {
 			  .header-image { display: none; }
 			  #center-nav { display: none; }
@@ -262,11 +281,19 @@ function wp_timesheets_list ( $atts ) {
 				}
 				
 				if ( (isset($existing_tasks['completed'])) && ($existing_tasks['completed'] == 1) ){
-				  $completed_time = date('H:i:s');
-					$completed_time = date('H:i:s', strtotime($completed_time) - 60 * 60 * 7);
+				  if (!empty($_POST['completed_time_'.$existing_tasks['id']])){
+					  $completed_pieces = explode(' ', $_POST['completed_time_'.$existing_tasks['id']]);
+						$completed_date = trim($completed_pieces[0]);
+						$completed_time = trim($completed_pieces[1]);
+						$completed_time = date('H:i:s', strtotime($completed_time) + 59);
+					} else {
+				    $completed_time = date('H:i:s');
+					  $completed_time = date('H:i:s', strtotime($completed_time) - 60 * 60 * 7);
+						$completed_date = date('Y-m-d');
+					}
 				  $update = $wpdb->update( $wpdb->prefix."wp_timesheets_tasks",
 				    array(
-					    'completed_date' => date('Y-m-d'),
+					    'completed_date' => $completed_date,
 							'completed_time' => $completed_time
 					  ),
 					  array (
@@ -313,14 +340,7 @@ function wp_timesheets_list ( $atts ) {
 			      $sql = "SELECT * FROM ".$wpdb->prefix."wp_timesheets_tasks WHERE user_id='".$current_user->ID."' AND created_date='".$created_date."' AND created_time <= '".$created_time."' AND created_time > '".date( 'H:i:s', $created_time + 15 * 60 )."' AND concurrent='0' ORDER BY created_time DESC LIMIT 1";
 						$running_tasks = $wpdb->get_results($sql);
 						foreach ($running_tasks as $task){
-						  //print '<h1>t: '.$task->id.'</h1>';
-							//$task_run_time = strtotime($created_time) - strtotime($task->created_time);
-							//print '<h2>$task_run_time = '.strtotime($created_time).' - '.strtotime($task->created_time).'</h2>';
-							//print '<h2>runtime: '.$task_run_time.'</h2>';
-							//print '<h2>time: '.date('H:i:s', $task_run_time).'</h2>';
-							//print '<h2>new task start time: '.$created_time.'</h2>';
 							$task_end_time = date('H:i:s', strtotime($created_time) -1);
-							//print '<h2>end_time: '.$task_end_time.'</h2>';
 							$update = $wpdb->update( $wpdb->prefix."wp_timesheets_tasks",
 							  array(
 								  'completed_date' => date('Y-m-d'),
@@ -778,10 +798,18 @@ function wp_timesheets_edit ( $atts ) {
 			  if (strtotime($task->completed_date) <= 0){
 			    $html .= '<tr>';
 					  $html .= '<td>';
-			        $html .= '<input id="radio1_'.$task->id.'" type="radio" name="existing_task['.$task->id.'][completed]" value="0" checked="checked"><label for="radio1_'.$task->id.'">Not Completed</label>';
-				      $html .= '<input id="radio2_'.$task->id.'" type="radio" name="existing_task['.$task->id.'][completed]" value="1"><label for="radio2_'.$task->id.'">Completed</label>';
+			        $html .= '<input id="radio1_'.$task->id.'" type="radio" name="existing_task['.$task->id.'][completed]" value="0" checked="checked" onclick="Test(this);"><label for="radio1_'.$task->id.'">Not Completed</label>';
+				      $html .= '<input id="radio2_'.$task->id.'" type="radio" name="existing_task['.$task->id.'][completed]" value="1" onclick="Test(this);"><label for="radio2_'.$task->id.'">Completed</label>';
+							$html .= '<div id="depot" style="display: none;">'.PHP_EOL;
+							  $html .= '<input type="text" id="completed_time_'.$task->id.'" name="completed_time_'.$task->id.'" placeholder="Completed Time">'.PHP_EOL;
+							$html .= '</div>'.PHP_EOL;
 						$html .= '</td>';
 					$html .= '</tr>';
+					$html .= '<script type="text/javascript">';
+          $html .= '      jQuery(document).ready(function() {';
+          $html .= "				jQuery('#completed_time_".$task->id."').datetimepicker({dateFormat: 'yy-m-d'});";
+          $html .= '      });';
+          $html .= '	  </script>';
 			  }
 			  $html .= '<tr>';
 			    $html .= '<td>';
