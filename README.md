@@ -1,4 +1,4 @@
-wp-time-sheets
+wp-timesheets
 ==============
 
 Timesheets Plugin for WordPress
