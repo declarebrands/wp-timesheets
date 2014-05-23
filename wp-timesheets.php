@@ -8,7 +8,7 @@
   Author URI: http://www.chrismackay.me
   License: GPL2
   
-  Copyright 2013-2014 Declare Brands Inc (email: cmackay@declarebrands.com)
+	Copyright 2013-2014 Declare Brands Inc (email: cmackay@declarebrands.com)
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2, as 
@@ -107,8 +107,8 @@ add_action('wp_enqueue_scripts', 'wp_timesheets_scripts');
 function wp_timesheets_scripts(){
 	wp_register_script('wp-timesheets-jscolor', plugin_dir_url( __FILE__ ).'js/jscolor.js', array(), '0.0.0', false);
 	wp_enqueue_script('wp-timesheets-jscolor');
-	wp_register_script('wp-timesheets-show-hide', plugin_dir_url( __FILE__ ).'js/show_hide.js', array(), '0.0.0', false);
-	wp_enqueue_script('wp-timesheets-show-hide');
+	//wp_register_script('wp-timesheets-show-hide', plugin_dir_url( __FILE__ ).'js/show_hide.js', array(), '0.0.0', true);
+	//wp_enqueue_script('wp-timesheets-show-hide');
 	wp_enqueue_script('jquery-ui-datepicker');
 	wp_enqueue_style('jquery-style', 'http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.2/themes/smoothness/jquery-ui.css');
 	wp_register_script('jquery-ui-timepicker', plugin_dir_url( __FILE__ ).'js/jquery-ui-timepicker-addon.js', array('jquery'), '0.0.0', true);
@@ -233,7 +233,7 @@ function wp_timesheets_list ( $atts ) {
 		  foreach ($_POST['existing_task'] as $existing_tasks){
 			  $update = $wpdb->update( $wpdb->prefix."wp_timesheets_tasks",
 				  array(
-					  'description' => $existing_tasks['description']
+					  'description' => stripslashes_deep($existing_tasks['description'])
 					),
 					array (
 					  'id' => $existing_tasks['id'],
@@ -333,7 +333,7 @@ function wp_timesheets_list ( $atts ) {
 						    'created_time' => $created_time,
 						    'user_id' => $current_user->ID,
 								'concurrent' => $new_tasks['new'],
-						    'description' => $new_tasks['description']
+						    'description' => stripslashes_deep($new_tasks['description'])
 					    )
 				    );
 					} else {
@@ -366,14 +366,17 @@ function wp_timesheets_list ( $atts ) {
 						    'created_date' => $created_date,
 						    'created_time' => $created_time,
 						    'user_id' => $current_user->ID,
-						    'description' => $new_tasks['description']
+						    'description' => stripslashes_deep($new_tasks['description'])
 					    )
 				    );
+					}
+					if ( (isset($new_tasks['created_date'])) && ($new_tasks['created_date'] != date('Y-m-d')) ){
+					  $_SESSION['date'] = $new_tasks['created_date'];
 					}
 				  if ($insert){
 				    //woohoo
 				  } else {
-				    $error_html .= 'ID: '.$current_user->ID.' Description: '.$new_tasks['description'].'<br />';
+				    $error_html .= 'ID: '.$current_user->ID.' Description: '.stripslashes_deep($new_tasks['description']).'<br />';
 				  }
 				  if (!empty($error_html)){
 				    print '<pre>'.$error_html.'</pre>';
@@ -404,7 +407,7 @@ function wp_timesheets_list ( $atts ) {
 				if (!empty($existing_projects['description'])){
 				  $update = $wpdb->update( $wpdb->prefix."wp_timesheets_projects",
 				    array(
-					    'description' => $existing_projects['description']
+					    'description' => stripslashes_deep($existing_projects['description'])
 					  ),
 					  array (
 					    'id' => $existing_projects['id'],
@@ -550,7 +553,7 @@ function wp_timesheets_list ( $atts ) {
 				if (!empty($existing_types['description'])){
 				  $update = $wpdb->update( $wpdb->prefix."wp_timesheets_types",
 				    array(
-					    'description' => $existing_types['description']
+					    'description' => stripslashes_deep($existing_types['description'])
 					  ),
 					  array (
 					    'id' => $existing_types['id'],
@@ -798,9 +801,9 @@ function wp_timesheets_edit ( $atts ) {
 			  if (strtotime($task->completed_date) <= 0){
 			    $html .= '<tr>';
 					  $html .= '<td>';
-			        $html .= '<input id="radio1_'.$task->id.'" type="radio" name="existing_task['.$task->id.'][completed]" value="0" checked="checked" onclick="Test(this);"><label for="radio1_'.$task->id.'">Not Completed</label>';
-				      $html .= '<input id="radio2_'.$task->id.'" type="radio" name="existing_task['.$task->id.'][completed]" value="1" onclick="Test(this);"><label for="radio2_'.$task->id.'">Completed</label>';
-							$html .= '<div id="depot" style="display: none;">'.PHP_EOL;
+						  $html .= '<input id="radio1_'.$task->id.'" type="radio" name="existing_task['.$task->id.'][completed]" value="0" checked="checked" onclick="Test'.$task->id.'(this);"><label for="radio1_'.$task->id.'">Not Completed</label>';
+				      $html .= '<input id="radio2_'.$task->id.'" type="radio" name="existing_task['.$task->id.'][completed]" value="1" onclick="Test'.$task->id.'(this);"><label for="radio2_'.$task->id.'">Completed</label>';
+							$html .= '<div id="depot'.$task->id.'" style="display: none;">'.PHP_EOL;
 							  $html .= '<input type="text" id="completed_time_'.$task->id.'" name="completed_time_'.$task->id.'" placeholder="Completed Time">'.PHP_EOL;
 							$html .= '</div>'.PHP_EOL;
 						$html .= '</td>';
@@ -818,6 +821,15 @@ function wp_timesheets_edit ( $atts ) {
 			  $html .= '</tr>';
 		  $html .= '</table>';
 		$html .= '</form>'.PHP_EOL;
+		if (strtotime($task->completed_date) <= 0){
+		  $html .= '<script language="JavaScript" type="text/javascript">'.PHP_EOL;
+		    $html .= 'function Test'.$task->id.'(rad'.$task->id.'){'.PHP_EOL;
+        $html .= 'var rads=document.getElementsByName(rad'.$task->id.'.name);'.PHP_EOL;
+        $html .= "document.getElementById('depot".$task->id."').style.display=(rads[1].checked)?'block':'none';".PHP_EOL;
+        $html .= '}';
+      $html .= '</script>'.PHP_EOL;
+		}
+
 	}
 	return $html;
 }

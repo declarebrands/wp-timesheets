@@ -11,7 +11,11 @@
 		if ( (isset($_GET['date'])) ){
 		  $the_date = $_GET['date'];
 		} else {
-		  $the_date = date('Y-m-d');
+		  if (isset($_SESSION['date'])){
+			  $the_date = $_SESSION['date'];
+			} else {
+		    $the_date = date('Y-m-d');
+			}
 		}
 		$ts = strtotime($the_date);
 		$year = date('o', $ts);
@@ -72,18 +76,22 @@
 	        for( $i = $start; $i <= $end; $i += $inc ){
             $range = date( 'g:i', $i ).' - '.date( 'g:i A', $i + $inc );
 			      $html .= '<tr>'.PHP_EOL;
-				      $sql = "SELECT COUNT(*) FROM ".$wpdb->prefix."wp_timesheets_tasks WHERE user_id='".$current_user->ID."' AND created_date='".$the_date."' AND created_time >= '".date('H:i:s', $i)."' AND created_time < '".date( 'H:i:s', $i + $inc )."' LIMIT 2";
+				      $sql = "SELECT COUNT(*) FROM ".$wpdb->prefix."wp_timesheets_tasks WHERE user_id='".$current_user->ID."' AND active='1' AND locked='0' AND created_date='".$the_date."' AND created_time >= '".date('H:i:s', $i)."' AND created_time < '".date( 'H:i:s', $i + $inc )."' LIMIT 2";
               $html .= '<td width="15%">'.$range.'</td>'.PHP_EOL;
 					    $task_count = $wpdb->get_var($sql);
 					    if ($task_count >= 1){
-					      $sql = "SELECT * FROM ".$wpdb->prefix."wp_timesheets_tasks WHERE user_id='".$current_user->ID."' AND created_date='".$the_date."' AND created_time >= '".date('H:i:s', $i)."' AND created_time < '".date( 'H:i:s', $i + $inc )."' LIMIT 2";
+					      $sql = "SELECT * FROM ".$wpdb->prefix."wp_timesheets_tasks WHERE user_id='".$current_user->ID."' AND active='1' AND locked='0' AND created_date='".$the_date."' AND created_time >= '".date('H:i:s', $i)."' AND created_time < '".date( 'H:i:s', $i + $inc )."' LIMIT 2";
 					      $tasks = $wpdb->get_results($sql);
 						    $loop_count = 0;
 		            foreach ( (array) $tasks as $task ){
-								  $sql = "SELECT color_code FROM ".$wpdb->prefix."wp_timesheets_types WHERE id='".$task->type_id."' AND active='1' AND locked='0'";
-									$color_code = $wpdb->get_var($sql);
-								  if ($color_code != 'FFFFFF'){
-									  $html .= '<td style="background-color: #'.$color_code.';">';
+								  if ($task->type_id >= 1){
+								    $sql = "SELECT color_code FROM ".$wpdb->prefix."wp_timesheets_types WHERE id='".$task->type_id."' AND active='1' AND locked='0'";
+									  $color_code = $wpdb->get_var($sql);
+								    if ($color_code != 'FFFFFF'){
+									    $html .= '<td style="background-color: #'.$color_code.';">';
+									  } else {
+									    $html .= '<td>';
+										}
 									} else {
 									  $html .= '<td>';
 									}
@@ -91,7 +99,11 @@
 										if (strtotime($task->completed_date) <= 0){
 										  $html .= '<input type="text" name="existing_task['.$task->id.'][description]" value="'.$task->description.'" title="'.$task->created_date.' '.$task->created_time.'" style="width: 80%; background: url('.plugin_dir_url( __FILE__ ).'../img/loading.gif) no-repeat; background-position: right 10px center;">';
 										} else {
-										  $html .= '<input type="text" name="existing_task['.$task->id.'][description]" value="'.$task->description.'" title="'.$task->created_date.' '.$task->created_time.'" style="width: 80%;">';
+											if (strtotime($task->completed_time) >= 1){
+										    $html .= '<input type="text" name="existing_task['.$task->id.'][description]" value="'.$task->description.'" title="'.$task->created_date.' '.$task->created_time.'" style="width: 80%; background-color: #E46764;">';
+											} else {
+											  $html .= '<input type="text" name="existing_task['.$task->id.'][description]" value="'.$task->description.'" title="'.$task->created_date.' '.$task->created_time.'" style="width: 80%;">';
+											}
 										}
 										//Begin Working
 										/*
@@ -103,7 +115,6 @@
 									  $popup_html .= '</div>'.PHP_EOL;
 										*/
 										//End Working
-										
 										//Begin Also Working
 										$html .= '&nbsp;<input alt="#TB_inline?height=300&amp;width=400&amp;inlineId=wp_timesheets_edit_'.$task->id.'" title="" class="thickbox" type="button" value="Edit" style="width: 15%;" />'.PHP_EOL;
 										$popup_html .= '<div id="wp_timesheets_edit_'.$task->id.'" style="padding: 20px; display: none;">'.PHP_EOL;
@@ -124,10 +135,16 @@
 							    $new_task_count++;
 						    }
 					    } else {
+							  $sql = "SELECT COUNT(id) FROM ".$wpdb->prefix."wp_timesheets_tasks WHERE user_id='".$current_user->ID."' AND active='1' AND locked='0' AND created_date='".$the_date."' AND created_time <= '".date('H:i:s', $i)."' AND completed_time >= '".date('H:i:s', $i)."' LIMIT 1";
+								$count = $wpdb->get_var($sql);
 					      $html .= '<td>'.PHP_EOL;
-									$html .= '<input type="hidden" name="new_task['.$new_task_count.'][created_date]" value="'.$the_date.'">'.PHP_EOL;
-									$html .= '<input type="hidden" name="new_task['.$new_task_count.'][created_time]" value="'.date('H:i:s', $i).'">'.PHP_EOL;
-								  $html .= '<input type="text" name="new_task['.$new_task_count.'][description]">'.PHP_EOL;
+								  if ($count >= 1){
+								    $html .= '<input readonly="readonly" style="background-color: #E46764;" type="text" name="new_task['.$new_task_count.'][description]">'.PHP_EOL;
+									} else {
+									  $html .= '<input type="hidden" name="new_task['.$new_task_count.'][created_date]" value="'.$the_date.'">'.PHP_EOL;
+									  $html .= '<input type="hidden" name="new_task['.$new_task_count.'][created_time]" value="'.date('H:i:s', $i).'">'.PHP_EOL;
+								    $html .= '<input type="text" name="new_task['.$new_task_count.'][description]">'.PHP_EOL;
+									}
 								$html .= '</td>'.PHP_EOL;
 						    $new_task_count++;
 						    $html .= '<td>'.PHP_EOL;
@@ -140,7 +157,6 @@
 					    }
 							$html .= '<td><input type="hidden" name="action" value="update-timesheets"><input type="submit" value="Save"></td>'.PHP_EOL;
 			      $html .= '</tr>'.PHP_EOL;
-						
           }
 		    $html .= '</tbody>'.PHP_EOL;
 	    $html .= '</table>'.PHP_EOL;

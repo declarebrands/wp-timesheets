@@ -46,8 +46,21 @@
 		  }
 		$html .= '</ul>'.PHP_EOL;
 		$html .= '<h1>'.$current_user->first_name.' '.$current_user->last_name.'</h1>'.PHP_EOL;
-		$html .= '<h3 style="margin: 0 0 10px 0;">For the week of '.date("F", $ts).' '.date("d", strtotime("-7 day", $ts)).' to '.date("d", $ts).'</h3>'.PHP_EOL;
-		$html .= '<table>'.PHP_EOL;
+		if ( (isset($_GET['date'])) ){
+		  $the_date = $_GET['date'];
+		} else {
+		  $the_date = date('Y-m-d');
+		}
+		$ts = strtotime($the_date);
+		$html .= '<h3 style="margin: 0 0 10px 0; font-size: 0.8em;">For the week of '.date("F", $ts).' '.date("d", $ts);
+		
+		if ( (date("F", strtotime("+6 day", $ts))) != (date("F", $ts)) ){
+		  $html .= ' to '.date("F", strtotime("+6 day", $ts)).' '.date("d", strtotime("+6 day", $ts)).'</h3>'.PHP_EOL;
+		} else {
+		  $html .= ' to '.date("d", strtotime("+6 day", $ts)).'</h3>'.PHP_EOL;
+		}
+		
+		$html .= '<table style="margin: 0;">'.PHP_EOL;
 		$popup_html .= '<table style="margin: 0;">'.PHP_EOL;
 		  $html .= '<tr>'.PHP_EOL;
 			$popup_html .= '<tr>'.PHP_EOL;
@@ -59,11 +72,11 @@
 			      $today = date("Y-m-d", $ts);
 						$the_day = date("D (d)", $ts);
 						$html .= '<h4 style="margin: 0; color: #000;">'.$the_day.'</h4>'.PHP_EOL;
-		        $sql = "SELECT COUNT(*) FROM ".$wpdb->prefix."wp_timesheets_tasks WHERE user_id='".$current_user->ID."' AND created_date='".$today."'";
+		        $sql = "SELECT COUNT(*) FROM ".$wpdb->prefix."wp_timesheets_tasks WHERE user_id='".$current_user->ID."' AND active='1' AND locked='0' AND created_date='".$today."'";
 						$task_count = $wpdb->get_var($sql);
 						$count = 0;
 						if ($task_count >= 1){
-						  $sql = "SELECT * FROM ".$wpdb->prefix."wp_timesheets_tasks WHERE user_id='".$current_user->ID."' AND created_date='".$today."'";
+						  $sql = "SELECT * FROM ".$wpdb->prefix."wp_timesheets_tasks WHERE user_id='".$current_user->ID."' AND active='1' AND locked='0' AND created_date='".$today."'";
 							$results = $wpdb->get_results($sql);
 							foreach ($results as $tasks){
 							  $count++;
